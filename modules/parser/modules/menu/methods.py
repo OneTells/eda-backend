@@ -1,0 +1,1 @@
+# https://eda.yandex.ru/api/v2/menu/retrieve/gyros__bistro
