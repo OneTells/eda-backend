@@ -1,7 +1,4 @@
-from pprint import pprint
-
 import orjson
-import asyncio
 
 from core.modules.api.methods import API
 from core.modules.logger.methods import logger
@@ -32,12 +29,3 @@ class Parser:
                 pass
 
         return list(result)
-
-async def main():
-    parser = Parser()
-    l = await parser.get_menu('gyros__bistro')
-    pprint(l)
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
