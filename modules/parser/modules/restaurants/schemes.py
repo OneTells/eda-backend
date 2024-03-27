@@ -22,12 +22,9 @@ class Restaurant(BaseModel):
     brand: Brand
 
     def __hash__(self):
-        return hash((self.name, self.slug))
+        return hash((type(self), self.name, self.slug))
 
     def __eq__(self, other: Self):
-        if type(self) != type(other):
-            return False
-
         return (self.name, self.slug) == (other.name, other.slug)
 
 

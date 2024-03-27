@@ -1,6 +1,3 @@
-import asyncio
-from pprint import pprint
-
 import orjson
 
 from core.modules.api.methods import API
@@ -8,10 +5,10 @@ from modules.parser.modules.restaurants.config import HEADERS
 from modules.parser.modules.restaurants.schemes import Restaurant, Location
 
 
-class RestaurantsParser:
+class Parser:
 
     @staticmethod
-    async def execute(location: Location) -> list[Restaurant]:
+    async def get_restaurants(location: Location) -> list[Restaurant]:
         response = await API.post(
             'https://eda.yandex.ru/eats/v1/layout-constructor/v1/layout',
             headers=HEADERS,
@@ -38,19 +35,3 @@ class RestaurantsParser:
             pass
 
         return list(result)
-
-
-async def main():
-    location = Location(
-        latitude=56.838010,
-        longitude=60.597465
-    )
-
-    result = await RestaurantsParser.execute(location)
-    pprint([(hash(x), x) for x in result])
-
-    await API.disconnect()
-
-
-if __name__ == '__main__':
-    asyncio.run(main())

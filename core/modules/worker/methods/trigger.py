@@ -8,7 +8,7 @@ from signal import signal, SIGTERM, SIGINT, SIG_IGN, default_int_handler
 import uvloop
 from _queue import Empty
 
-from core.general.models.settings import Settings
+from core.general.models.workers import Workers
 from core.modules.database.methods import Select, Insert
 from core.modules.logger.methods import logger
 from core.modules.worker.exceptions.trigger import ReloadTriggerError
@@ -115,21 +115,21 @@ class Trigger:
 
     async def __is_on(self) -> bool:
         try:
-            is_trigger_on: str | None = await (
-                Select(Settings.value)
-                .where(Settings.name == self.__worker_data.worker_name)
+            is_trigger_on: bool | None = await (
+                Select(Workers.is_trigger_on)
+                .where(Workers.name == self.__worker_data.worker_name)
                 .fetch_one(model=lambda x: x[0])
             )
 
             if is_trigger_on is None:
-                await Insert(Settings).values(name=self.__worker_data.worker_name, value='0').execute()
+                await Insert(Workers).values(name=self.__worker_data.worker_name, is_trigger_on=False).execute()
                 return False
         except Exception as error:
             logger.exception(str(error))
             logger.error(f'Ошибка в проверке работы {self.__worker_data.worker_name} trigger')
             return False
 
-        return is_trigger_on == '1'
+        return is_trigger_on is True
 
     async def __wait_end_work_executors(self) -> None:
         while True:
