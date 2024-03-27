@@ -4,10 +4,13 @@ if __name__ == '__main__':
 
     from core.modules.worker.methods.worker import WorkerManager
     from modules.parser.modules.restaurants.workers import RestaurantSearcherWorker
+    from modules.parser.modules.menu.workers import MenuItemSearcherWorker
 
     multiprocessing.set_start_method('spawn')
 
-    worker_manager = WorkerManager(RestaurantSearcherWorker)
+    worker_manager = WorkerManager(
+        RestaurantSearcherWorker, MenuItemSearcherWorker
+    )
 
     worker_manager.start()
 

@@ -1,6 +1,7 @@
 import orjson
 
 from core.modules.api.methods import API
+from core.modules.logger.methods import logger
 from modules.parser.modules.restaurants.config import HEADERS
 from modules.parser.modules.restaurants.schemes import Restaurant, Location
 
@@ -14,6 +15,10 @@ class Parser:
             headers=HEADERS,
             json={'location': location.model_dump()}
         )
+
+        if response.status_code != 200:
+            logger.error(msg := f'Не удалось получить рестораны: {response}')
+            raise ValueError(msg)
 
         content = orjson.loads(response.content)['data']
 

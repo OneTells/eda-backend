@@ -10,7 +10,7 @@ class Organizations(Base):
     id: Mapped[int] = column(SmallInteger, autoincrement=True, primary_key=True)
     name: Mapped[str] = column(Text, unique=True)
     slug: Mapped[str] = column(Text, unique=True)
-    photo: Mapped[str] = column(Text, unique=True)
+    photo: Mapped[str] = column(Text, nullable=False)
 
 
 class Restaurants(Base):

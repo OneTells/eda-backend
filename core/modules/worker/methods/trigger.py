@@ -117,12 +117,16 @@ class Trigger:
         try:
             is_trigger_on: bool | None = await (
                 Select(Workers.is_trigger_on)
-                .where(Workers.name == self.__worker_data.worker_name)
+                .where(Workers.name == self.__worker_data.worker_name.removesuffix('Worker'))
                 .fetch_one(model=lambda x: x[0])
             )
 
             if is_trigger_on is None:
-                await Insert(Workers).values(name=self.__worker_data.worker_name, is_trigger_on=False).execute()
+                await (
+                    Insert(Workers)
+                    .values(name=self.__worker_data.worker_name.removesuffix('Worker'), is_trigger_on=False)
+                    .execute()
+                )
                 return False
         except Exception as error:
             logger.exception(str(error))
