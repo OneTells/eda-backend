@@ -26,17 +26,17 @@ class Parser:
 
         try:
             result |= set(map(lambda x: Restaurant.model_validate(x), content['places_carousels'][0]['payload']['places']))
-        except KeyError:
+        except (IndexError, KeyError):
             pass
 
         try:
             result |= set(map(lambda x: Restaurant.model_validate(x), content['places_lists'][0]['payload']['places']))
-        except KeyError:
+        except (IndexError, KeyError):
             pass
 
         try:
             result |= set(map(lambda x: Restaurant.model_validate(x), content['places_lists'][1]['payload']['places']))
-        except KeyError:
+        except (IndexError, KeyError):
             pass
 
         return list(result)

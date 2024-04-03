@@ -1,9 +1,8 @@
-from typing import List
-
-from asyncpg import Record
+import asyncio
 
 from core.general.models.menu import MenuItems
 from core.general.models.restaurants import Restaurants
+from core.general.utils.counter import TimeCounter
 from core.modules.database.methods import Insert, Select
 from core.modules.worker.abstract.executor import BaseExecutor
 from core.modules.worker.abstract.trigger import BaseTrigger
@@ -14,8 +13,16 @@ from modules.parser.modules.menu.methods import Parser
 
 
 class Executor(BaseExecutor):
+    __time_counter = TimeCounter(minutes=1)
+
+    @classmethod
+    async def __flood_control(cls):
+        if cls.__time_counter.add() >= 20:
+            await asyncio.sleep(cls.__time_counter.time_until_element_is_deleted)
 
     async def __call__(self, restaurant_id: int, restaurant_slug: str) -> None:
+        await self.__flood_control()
+
         menu_items = await Parser.get_menu(restaurant_slug)
         result = []
 

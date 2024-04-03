@@ -1,16 +1,33 @@
-# This is a sample Python script.
+if __name__ == 'main':
+    from logging import basicConfig, DEBUG
+    from sys import stdout
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+    from modules.api.general.objects.api import app
 
+    from modules.api.modules.allergens.api import router as allergen_router
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+    app.include_router(allergen_router)
 
+    basicConfig(level=DEBUG, stream=stdout)
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm1')
+    import asyncio
+    import uvicorn
+    import uvloop
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    from core.general.config import ServerInfo
+    from core.modules.logger.methods import logger
+
+
+    async def main():
+        logger.info('API запущен')
+        uvicorn.run(
+            "main:app", host=ServerInfo.IP, port=ServerInfo.PORT, workers=2,
+            log_level='info', access_log=False, http='httptools', timeout_keep_alive=180, loop='uvloop'
+        )
+        logger.info('API выключен')
+        await asyncio.sleep(0)
+
+
+    with asyncio.Runner(loop_factory=uvloop.new_event_loop) as runner:
+        runner.run(main())

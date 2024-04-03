@@ -1,4 +1,4 @@
-from sqlalchemy import Text, SmallInteger, Float, ForeignKey
+from sqlalchemy import Text, SmallInteger, Float, ForeignKey, BigInteger
 from sqlalchemy.orm import mapped_column as column, Mapped
 
 from core.general.models.base import Base
@@ -8,7 +8,7 @@ from core.general.models.restaurants import Restaurants
 class MenuItems(Base):
     __tablename__ = 'menu_items'
 
-    id: Mapped[int] = column(SmallInteger, autoincrement=True, primary_key=True)
+    id: Mapped[int] = column(BigInteger, autoincrement=True, primary_key=True)
     name: Mapped[str] = column(Text, nullable=False)
     description: Mapped[str] = column(Text)
     price: Mapped[float] = column(Float, nullable=False)

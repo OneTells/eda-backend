@@ -1,4 +1,7 @@
+import asyncio
+
 from core.general.models.restaurants import Restaurants, Organizations
+from core.general.utils.counter import TimeCounter
 from core.modules.database.methods import Insert, Select
 from core.modules.worker.abstract.executor import BaseExecutor
 from core.modules.worker.abstract.trigger import BaseTrigger
@@ -10,6 +13,12 @@ from modules.parser.modules.restaurants.schemes import Location, Restaurant
 
 
 class Executor(BaseExecutor):
+    __time_counter = TimeCounter(minutes=1)
+
+    @classmethod
+    async def __flood_control(cls):
+        if cls.__time_counter.add() >= 20:
+            await asyncio.sleep(cls.__time_counter.time_until_element_is_deleted)
 
     @staticmethod
     async def __get_organization_id(restaurant: Restaurant) -> int:
@@ -30,7 +39,13 @@ class Executor(BaseExecutor):
         return organization_id
 
     async def __call__(self, location: Location) -> None:
+        await self.__flood_control()
+
         restaurants = await Parser.get_restaurants(location)
+
+        if not restaurants:
+            return
+
         result = []
 
         for restaurant in restaurants:
@@ -46,14 +61,35 @@ class Executor(BaseExecutor):
 
 
 class Trigger(BaseTrigger):
+    LATITUDE_MIN = 56.745
+    LATITUDE_MAX = 56.920
+    LATITUDE_STEP = 0.005
+
+    LONGITUDE_MIN = 60.400
+    LONGITUDE_MAX = 60.830
+    LONGITUDE_STEP = 0.005
 
     async def __call__(self) -> list[Location]:
-        return [
-            Location(
-                latitude=56.838010,
-                longitude=60.597465
-            )
-        ]
+        result = []
+
+        latitude = self.LATITUDE_MIN
+
+        while latitude <= self.LATITUDE_MAX:
+            longitude = self.LATITUDE_MIN
+
+            while longitude <= self.LONGITUDE_MAX:
+                result.append(
+                    Location(
+                        latitude=latitude,
+                        longitude=longitude
+                    )
+                )
+
+                longitude += self.LONGITUDE_STEP
+
+            latitude += self.LATITUDE_STEP
+
+        return result
 
 
 class RestaurantSearcherWorker(BaseWorker):
