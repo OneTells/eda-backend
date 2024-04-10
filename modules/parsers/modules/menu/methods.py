@@ -1,16 +1,16 @@
 import orjson
 
-from core.modules.api.methods import API
 from core.modules.logger.methods import logger
-from modules.parser.modules.menu.config import HEADERS
-from modules.parser.modules.menu.schemes import Item
+from core.modules.requests.core.methods import Requests
+from modules.parsers.modules.menu.config import HEADERS
+from modules.parsers.modules.menu.schemes import Item
 
 
 class Parser:
 
     @staticmethod
     async def get_menu(slug: str) -> list[Item]:
-        response = await API.get(
+        response = await Requests.get(
             f'https://eda.yandex.ru/api/v2/menu/retrieve/{slug}', headers=HEADERS
         )
 

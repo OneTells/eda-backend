@@ -1,3 +1,4 @@
+import asyncio
 from time import time
 
 
@@ -46,3 +47,14 @@ class TimeCounter:
     @property
     def time_until_element_is_deleted(self) -> int:
         return self.__period - (int(time()) - self.__first_element)
+
+
+class FloodControl:
+
+    def __init__(self, n_times_per_period, *, hours: int = 0, minutes: int = 0, seconds: int = 0, milliseconds: int = 0):
+        self.__n_times_per_period = n_times_per_period
+        self.__time_counter = TimeCounter(hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds)
+
+    async def wait_point(self):
+        if self.__time_counter.add() > self.__n_times_per_period:
+            await asyncio.sleep(self.__time_counter.time_until_element_is_deleted)

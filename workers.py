@@ -3,8 +3,8 @@ if __name__ == '__main__':
     from time import sleep
 
     from core.modules.worker.methods.worker import WorkerManager
-    from modules.parser.modules.restaurants.workers import RestaurantSearcherWorker
-    from modules.parser.modules.menu.workers import MenuItemSearcherWorker
+    from modules.parsers.modules.restaurants.workers import RestaurantSearcherWorker
+    from modules.parsers.modules.menu.workers import MenuItemSearcherWorker
 
     multiprocessing.set_start_method('spawn')
 

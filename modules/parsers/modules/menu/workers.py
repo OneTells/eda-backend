@@ -9,7 +9,7 @@ from core.modules.worker.abstract.trigger import BaseTrigger
 from core.modules.worker.abstract.worker import BaseWorker
 from core.modules.worker.schemes.setting import Setting
 from core.modules.worker.utils.timer import timer
-from modules.parser.modules.menu.methods import Parser
+from modules.parsers.modules.menu.methods import Parser
 
 
 class Executor(BaseExecutor):
@@ -17,7 +17,7 @@ class Executor(BaseExecutor):
 
     @classmethod
     async def __flood_control(cls):
-        if cls.__time_counter.add() >= 20:
+        if cls.__time_counter.add() >= 100:
             await asyncio.sleep(cls.__time_counter.time_until_element_is_deleted)
 
     async def __call__(self, restaurant_id: int, restaurant_slug: str) -> None:

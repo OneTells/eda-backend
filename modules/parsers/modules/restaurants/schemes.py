@@ -21,13 +21,12 @@ class Restaurant(BaseModel):
     media: Media
     brand: Brand
 
+    longitude: float = None
+    latitude: float = None
+    rating: float | None = None
+
     def __hash__(self):
         return hash((type(self), self.name, self.slug))
 
     def __eq__(self, other: Self):
         return (self.name, self.slug) == (other.name, other.slug)
-
-
-class Location(BaseModel):
-    latitude: float
-    longitude: float
