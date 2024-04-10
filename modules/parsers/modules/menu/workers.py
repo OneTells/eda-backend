@@ -1,45 +1,79 @@
-import asyncio
+from datetime import datetime
 
-from core.general.models.menu import MenuItems
+from core.general.models.menu import MenuItems, Categories
 from core.general.models.restaurants import Restaurants
-from core.general.utils.counter import TimeCounter
-from core.modules.database.methods import Insert, Select
+from core.modules.database.methods import Insert, Select, Delete
+from core.modules.logger.methods import logger
 from core.modules.worker.abstract.executor import BaseExecutor
 from core.modules.worker.abstract.trigger import BaseTrigger
 from core.modules.worker.abstract.worker import BaseWorker
 from core.modules.worker.schemes.setting import Setting
 from core.modules.worker.utils.timer import timer
-from modules.parsers.modules.menu.methods import Parser
+from modules.parsers.modules.menu.methods import MenuParser
+from modules.parsers.modules.menu.schemes import MenuItem
 
 
 class Executor(BaseExecutor):
-    __time_counter = TimeCounter(minutes=1)
 
-    @classmethod
-    async def __flood_control(cls):
-        if cls.__time_counter.add() >= 100:
-            await asyncio.sleep(cls.__time_counter.time_until_element_is_deleted)
+    @staticmethod
+    async def __get_category_id(menu_item: MenuItem) -> int:
+        category_id: int | None = await (
+            Select(Categories.id)
+            .where(Categories.name == menu_item.category_name)
+            .fetch_one(model=lambda x: x[0])
+        )
+
+        if category_id is not None:
+            return category_id
+
+        category_id = await (
+            Insert(Categories)
+            .values(name=menu_item.category_name)
+            .returning(Categories.id, model=lambda x: x[0])
+        )
+
+        if category_id is None:
+            logger.error(msg := 'Не удалось добавить категорию')
+            raise ValueError(msg)
+
+        return category_id
 
     async def __call__(self, restaurant_id: int, restaurant_slug: str) -> None:
-        await self.__flood_control()
+        menu_items = await MenuParser.get_menu(restaurant_slug)
 
-        menu_items = await Parser.get_menu(restaurant_slug)
-        result = []
+        new_menu_items: list[dict[str, [str, None, datetime]]] = []
+        current_time = datetime.now()
 
-        for item in menu_items:
-            result.append(
+        for menu_item in menu_items:
+            try:
+                category_id = await self.__get_category_id(menu_item)
+            except ValueError:
+                continue
+
+            new_menu_items.append(
                 {
-                    'name': item.name,
-                    'description': item.description,
-                    'price': item.price,
-                    'nutrient': item.nutrients.model_dump_json() if item.nutrients else None,
-                    'weight_in_grams': item.measure.value if item.measure else None,
-                    'photo': item.picture.uri if item.picture else None,
-                    'restaurant_id': restaurant_id
+                    'category_id': category_id,
+                    'name': menu_item.name,
+                    'description': menu_item.description,
+                    'price': menu_item.price,
+                    'nutrient': menu_item.nutrients.model_dump_json() if menu_item.nutrients else None,
+                    'measure': menu_item.measure.model_dump_json() if menu_item.measure else None,
+                    'photo': menu_item.photo,
+                    'restaurant_id': restaurant_id,
+                    'last_parsing_time': current_time
                 }
             )
 
-        await Insert(MenuItems).values(result).execute()
+        # todo Использовать транзакции и __переделать__
+
+        await (
+            Delete(MenuItems)
+            .where(MenuItems.restaurant_id == restaurant_id)
+            .execute()
+        )
+
+        for result_ in (new_menu_items[n:n + 50] for n in range(0, len(new_menu_items), 50)):
+            await Insert(MenuItems).values(result_).execute()
 
 
 class Trigger(BaseTrigger):

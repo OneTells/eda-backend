@@ -1,31 +1,44 @@
 import orjson
 
+from core.general.utils.counter import FloodControl
 from core.modules.logger.methods import logger
 from core.modules.requests.core.methods import Requests
 from modules.parsers.modules.menu.config import HEADERS
-from modules.parsers.modules.menu.schemes import Item
+from modules.parsers.modules.menu.schemes import Category, MenuItem
 
 
-class Parser:
+class MenuParser:
+    __flood_control = FloodControl(250, minutes=1)
 
-    @staticmethod
-    async def get_menu(slug: str) -> list[Item]:
+    @classmethod
+    async def get_menu(cls, restaurant_slug: str) -> list[MenuItem]:
+        await cls.__flood_control.wait_point()
+
         response = await Requests.get(
-            f'https://eda.yandex.ru/api/v2/menu/retrieve/{slug}', headers=HEADERS
+            f'https://eda.yandex.ru/api/v2/menu/retrieve/{restaurant_slug}',
+            headers=HEADERS
         )
 
         if response.status_code != 200:
             logger.error(msg := f'Не удалось получить меню: {response}')
             raise ValueError(msg)
 
-        content = orjson.loads(response.content)['payload']
+        categories = orjson.loads(response.content)['payload']['categories']
 
-        result = set()
+        result: set[MenuItem] = set()
 
-        for category in content['categories']:
-            try:
-                result |= set(map(lambda x: Item.model_validate(x), category['items']))
-            except KeyError:
-                pass
+        for category in map(Category.model_validate, categories):
+            for item in category.items:
+                result.add(
+                    MenuItem(
+                        category_name=category.name,
+                        name=item.name,
+                        description=item.description,
+                        price=item.price,
+                        nutrients=item.nutrients,
+                        measure=item.measure,
+                        photo=item.picture.uri if item.picture else None
+                    )
+                )
 
         return list(result)

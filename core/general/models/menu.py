@@ -1,8 +1,17 @@
-from sqlalchemy import Text, SmallInteger, Float, ForeignKey, BigInteger
+from datetime import datetime
+
+from sqlalchemy import Text, Float, ForeignKey, BigInteger, TIMESTAMP
 from sqlalchemy.orm import mapped_column as column, Mapped
 
 from core.general.models.base import Base
 from core.general.models.restaurants import Restaurants
+
+
+class Categories(Base):
+    __tablename__ = 'categories'
+
+    id: Mapped[int] = column(BigInteger, autoincrement=True, primary_key=True)
+    name: Mapped[str] = column(Text, nullable=False)
 
 
 class MenuItems(Base):
@@ -10,9 +19,11 @@ class MenuItems(Base):
 
     id: Mapped[int] = column(BigInteger, autoincrement=True, primary_key=True)
     name: Mapped[str] = column(Text, nullable=False)
-    description: Mapped[str] = column(Text)
+    description: Mapped[str | None] = column(Text)
     price: Mapped[float] = column(Float, nullable=False)
     nutrient: Mapped[str | None] = column(Text)
-    weight_in_grams: Mapped[float] = column(Float)
+    measure: Mapped[str | None] = column(Text)
     photo: Mapped[str | None] = column(Text)
-    restaurant_id: Mapped[int] = column(SmallInteger, ForeignKey(Restaurants.id), nullable=False)
+    restaurant_id: Mapped[int] = column(BigInteger, ForeignKey(Restaurants.id), nullable=False)
+    last_parsing_time: Mapped[datetime] = column(TIMESTAMP, nullable=False)
+    category_id: Mapped[int] = column(BigInteger, ForeignKey(Categories.id), nullable=False)
