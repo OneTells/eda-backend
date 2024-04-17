@@ -1,6 +1,6 @@
-from typing import TypedDict
+from pydantic import BaseModel
 
 
-class Location(TypedDict):
+class Location(BaseModel):
     latitude: float
     longitude: float

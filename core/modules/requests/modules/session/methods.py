@@ -6,6 +6,7 @@ from typing import Self, Any
 from aiohttp import ClientError
 from aiohttp.client import ClientSession
 
+from core.modules.requests.core.config import DEFAULT_HEADERS
 from core.modules.requests.core.exceptions import GetFileError
 from core.modules.requests.core.schemes import Response, Methods, RequestArgs, Dict, Params
 
@@ -33,7 +34,7 @@ class Session:
     async def request(self, method: Methods, url: str, **kwargs) -> Response:
         args = RequestArgs(**kwargs)
 
-        args.headers = args.headers or {}
+        args.headers = args.headers or DEFAULT_HEADERS
         args.cookies = args.cookies or {}
 
         return await self.__request(method, url, **args.model_dump(by_alias=True))

@@ -21,7 +21,7 @@ class MenuItems(Base):
     name: Mapped[str] = column(Text, nullable=False)
     description: Mapped[str | None] = column(Text)
     price: Mapped[float] = column(Float, nullable=False)
-    nutrient: Mapped[str | None] = column(Text)
+    nutrients: Mapped[str | None] = column(Text)
     measure: Mapped[str | None] = column(Text)
     photo: Mapped[str | None] = column(Text)
     restaurant_id: Mapped[int] = column(BigInteger, ForeignKey(Restaurants.id), nullable=False)

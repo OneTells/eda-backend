@@ -9,7 +9,7 @@ import uvloop
 from _queue import Empty
 
 from core.general.models.workers import Workers
-from core.modules.database.methods import Select, Insert
+from core.modules.database.modules.requests.methods import Insert, Select
 from core.modules.logger.methods import logger
 from core.modules.worker.exceptions.trigger import ReloadTriggerError
 from core.modules.worker.methods.executor import ExecutorProcess

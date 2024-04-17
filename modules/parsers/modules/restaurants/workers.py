@@ -2,7 +2,7 @@ from datetime import datetime
 
 from core.general.models.restaurants import Restaurants, Organizations
 from core.general.schemes.restaurant import Location
-from core.modules.database.methods import Insert, Select, Update
+from core.modules.database.modules.requests.methods import Select, Insert, Update
 from core.modules.logger.methods import logger
 from core.modules.worker.abstract.executor import BaseExecutor
 from core.modules.worker.abstract.trigger import BaseTrigger
@@ -10,7 +10,7 @@ from core.modules.worker.abstract.worker import BaseWorker
 from core.modules.worker.schemes.setting import Setting
 from core.modules.worker.utils.timer import timer
 from modules.parsers.modules.restaurants.methods import RestaurantParser
-from modules.parsers.modules.restaurants.schemes import Restaurant
+from modules.parsers.modules.restaurants.schemes import Restaurant, Organization
 
 
 class Executor(BaseExecutor):
@@ -19,7 +19,7 @@ class Executor(BaseExecutor):
     async def __get_organization_id(restaurant: Restaurant) -> int:
         organization_id: int | None = await (
             Select(Organizations.id)
-            .where(Organizations.slug == restaurant.brand.slug)
+            .where(Organizations.slug == restaurant.organization.slug)
             .fetch_one(model=lambda x: x[0])
         )
 
@@ -28,7 +28,7 @@ class Executor(BaseExecutor):
 
         organization_id = await (
             Insert(Organizations)
-            .values(name=restaurant.name, slug=restaurant.brand.slug, photo=restaurant.media.photos[0].uri)
+            .values(restaurant.organization.model_dump())
             .returning(Organizations.id, model=lambda x: x[0])
         )
 
@@ -38,35 +38,80 @@ class Executor(BaseExecutor):
 
         return organization_id
 
+    @staticmethod
+    async def __get_restaurants_in_db() -> dict[str, Restaurant]:
+        response = await (
+            Select(
+                Restaurants.slug, Restaurants.rating, Restaurants.longitude, Restaurants.latitude,
+                Organizations.slug, Organizations.name, Organizations.photo
+            ).join(Organizations, Restaurants.organization_id == Organizations.id)
+            .fetch()
+        )
+
+        return {
+            row[0]: Restaurant(
+                slug=row[0], organization=Organization(slug=row[4], name=row[6], photo=row[6]),
+                rating=row[1], longitude=row[2], latitude=row[3]
+            ) for row in response
+        }
+
+    async def __update_restaurant(self, restaurant: Restaurant, restaurant_in_db: Restaurant) -> None:
+        update_restaurant = {}
+
+        if restaurant_in_db.rating != restaurant.rating:
+            update_restaurant['rating'] = restaurant.rating
+
+        if restaurant_in_db.longitude != restaurant.longitude:
+            update_restaurant['longitude'] = restaurant.longitude
+
+        if restaurant_in_db.latitude != restaurant.latitude:
+            update_restaurant['latitude'] = restaurant.latitude
+
+        if restaurant_in_db.organization.slug != restaurant.organization.slug:
+            try:
+                organization_id = await self.__get_organization_id(restaurant)
+            except ValueError:
+                return
+
+            update_restaurant['organization_id'] = organization_id
+        else:
+            update_organization = {}
+
+            if restaurant_in_db.organization.name != restaurant.organization.name:
+                update_organization['name'] = restaurant.organization.name
+
+            if restaurant.organization.photo is not None and restaurant_in_db.organization.photo != restaurant.organization.photo:
+                update_organization['photo'] = restaurant.organization.photo
+
+            if update_organization:
+                await (
+                    Update(Organizations)
+                    .values(update_organization)
+                    .where(Organizations.slug == restaurant.organization.slug)
+                    .execute()
+                )
+
+        if not update_restaurant:
+            return
+
+        await Update(Restaurants).values(update_restaurant).where(Restaurants.slug == restaurant.slug).execute()
+
     async def __call__(self, location: Location) -> None:
         restaurants = await RestaurantParser.get_restaurants(location)
 
         if not restaurants:
             return
 
-        response = await Select(Restaurants.id, Restaurants.slug, Restaurants.rating).fetch()
-        restaurants_in_db: dict[str, tuple[int, float]] = {slug: (id_, rating) for id_, slug, rating in response}
+        restaurants_in_db = await self.__get_restaurants_in_db()
 
-        new_restaurants: list[dict[str, [str, int, datetime]]] = []
-
-        update_time: list[int] = []
-        update_rating: list[tuple[int, float]] = []
-
-        current_time = datetime.now()
+        new_restaurants: list[dict[str, str | int | float | datetime]] = []
+        update_restaurants: list[str] = []
 
         for restaurant in restaurants:
-            data = restaurants_in_db.get(restaurant.slug, None)
-
-            if data is not None:
-                restaurant_id, rating = data
-
-                if rating != restaurant.rating:
-                    update_rating.append((restaurant_id, restaurant.rating))
-
-                update_time.append(restaurant_id)
+            if (restaurant_in_db := restaurants_in_db.get(restaurant.slug, None)) is not None:
+                await self.__update_restaurant(restaurant, restaurant_in_db)
+                update_restaurants.append(restaurant.slug)
                 continue
-
-            await RestaurantParser.add_additional_data(restaurant)
 
             try:
                 organization_id = await self.__get_organization_id(restaurant)
@@ -75,31 +120,18 @@ class Executor(BaseExecutor):
 
             new_restaurants.append(
                 dict(
-                    slug=restaurant.slug,
-                    organization_id=organization_id,
-                    longitude=restaurant.longitude,
-                    latitude=restaurant.latitude,
-                    rating=restaurant.rating,
-                    last_parsing_time=current_time
+                    slug=restaurant.slug, organization_id=organization_id, longitude=restaurant.longitude,
+                    latitude=restaurant.latitude, rating=restaurant.rating, last_parsing_time=datetime.now()
                 )
             )
 
-        for result_ in (new_restaurants[n:n + 50] for n in range(0, len(new_restaurants), 50)):
-            await Insert(Restaurants).values(result_).execute()
+        for result in (new_restaurants[n:n + 50] for n in range(0, len(new_restaurants), 50)):
+            await Insert(Restaurants).values(result).execute()
 
-        if update_time:
+        if update_restaurants:
             await (
-                Update(Restaurants)
-                .values(last_parsing_time=current_time)
-                .where(Restaurants.id.in_(update_time))
-                .execute()
-            )
-
-        for restaurant_id, rating in update_rating:
-            await (
-                Update(Restaurants)
-                .values(rating=rating)
-                .where(Restaurants.id == restaurant_id)
+                Update(Restaurants).values(last_parsing_time=datetime.now())
+                .where(Restaurants.slug.in_(update_restaurants))
                 .execute()
             )
 
