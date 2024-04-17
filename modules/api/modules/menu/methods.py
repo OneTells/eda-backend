@@ -11,8 +11,8 @@ async def get_menu_by_restaurant_id(restaurant_id: int) -> Menu:
         Select(
             MenuItems.name, MenuItems.description, MenuItems.price, MenuItems.photo,
             MenuItems.measure, MenuItems.nutrients, Categories.name.label('category_name'),
-        ).join(Categories, MenuItems.category_id == Categories.id, MenuItems.last_parsing_time + timedelta(days=3) > datetime.now())
-        .where(MenuItems.restaurant_id == restaurant_id)
+        ).join(Categories, MenuItems.category_id == Categories.id)
+        .where(MenuItems.restaurant_id == restaurant_id, MenuItems.last_parsing_time + timedelta(days=3) > datetime.now())
         .fetch()
     )
 
