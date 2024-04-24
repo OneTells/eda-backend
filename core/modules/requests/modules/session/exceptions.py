@@ -1,5 +1,5 @@
 from core.modules.logger.methods import logger
-from core.modules.requests.core.schemes import Response
+from core.modules.requests.modules.session.schemes import Response
 
 
 class GetFileError(Exception):
@@ -9,8 +9,8 @@ class GetFileError(Exception):
         self.url = url
         self.response = response
 
-        self.__message = f'GetFileError: {message}. Ссылка: {url}, Ответ сервера:  {response}'
-        logger.error(self.__message)
+        self.message = f'GetFileError: {message}. Ссылка: {url}, Ответ сервера: {response}'
+        logger.error(self.message)
 
     def __str__(self) -> str:
-        return self.__message
+        return self.message

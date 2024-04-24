@@ -1,12 +1,12 @@
-from typing import Literal, Mapping, Any
+from typing import Literal, Any
 
 from aiohttp import ClientResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 type Methods = Literal['GET', 'POST', 'PUT', 'DELETE']
 
-type Dict = Mapping[str, str]
-type Params = Mapping[str, str | int | float]
+type Dict = dict[str, str]
+type Params = dict[str, str | int | float]
 
 
 class Response(BaseModel):
@@ -15,7 +15,7 @@ class Response(BaseModel):
     content: bytes | None
     status_code: int
 
-    row_response: ClientResponse | None
+    row_response: ClientResponse | None = None
 
 
 class RequestArgs(BaseModel):
@@ -26,3 +26,4 @@ class RequestArgs(BaseModel):
     json_: Any = Field(None, alias='json')
     cookies: Dict | None = None
     headers: Dict | None = None
+    proxy: str | None = None

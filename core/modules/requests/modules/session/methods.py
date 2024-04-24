@@ -3,29 +3,25 @@ from asyncio import sleep
 from io import BytesIO
 from typing import Self, Any
 
-from aiohttp import ClientError
+from aiohttp import ClientError, ServerDisconnectedError
 from aiohttp.client import ClientSession
 
-from core.modules.requests.core.config import DEFAULT_HEADERS
-from core.modules.requests.core.exceptions import GetFileError
-from core.modules.requests.core.schemes import Response, Methods, RequestArgs, Dict, Params
+from core.modules.requests.modules.session.config import DEFAULT_USER_AGENT
+from core.modules.requests.modules.session.exceptions import GetFileError
+from core.modules.requests.modules.session.schemes import Response, Methods, RequestArgs, Dict, Params
 
 
 class Session:
 
-    def __new__(cls, *args, **kwargs):
-        instance = super().__new__(cls)
-        SessionPool.add(instance)
-        return instance
-
     def __init__(self, **kwargs):
         self.__session = ClientSession(**kwargs)
+        SessionPool.add(self)
 
     async def __request(self, method: Methods, url: str, depth: int = 0, **kwargs: Any) -> Response:
         try:
             async with self.__session.request(method, url, **kwargs) as response:
                 return Response(content=await response.read(), status_code=response.status, row_response=response)
-        except (ClientError, asyncio.TimeoutError):
+        except (ServerDisconnectedError, ClientError, asyncio.TimeoutError):
             if depth == 2:
                 return Response(content=None, status_code=500, row_response=None)
 
@@ -34,7 +30,9 @@ class Session:
     async def request(self, method: Methods, url: str, **kwargs) -> Response:
         args = RequestArgs(**kwargs)
 
-        args.headers = args.headers or DEFAULT_HEADERS
+        if args.headers is not None and args.headers.get('user-agent', None) is None:
+            args.headers['user-agent'] = DEFAULT_USER_AGENT
+
         args.cookies = args.cookies or {}
 
         return await self.__request(method, url, **args.model_dump(by_alias=True))
@@ -55,8 +53,8 @@ class Session:
     async def delete(self, url: str, *, headers: Dict = None, cookies: Dict = None, **kwargs) -> Response:
         return await self.request('DELETE', url, headers=headers, cookies=cookies, **kwargs)
 
-    async def get_file(self, url: str) -> BytesIO:
-        response = await self.get(url)
+    async def get_file(self, url: str, **kwargs) -> BytesIO:
+        response = await self.get(url, **kwargs)
 
         if response.status_code == 200:
             return BytesIO(response.content)

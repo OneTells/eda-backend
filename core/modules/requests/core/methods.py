@@ -2,7 +2,7 @@ from io import BytesIO
 
 from aiohttp import ClientTimeout
 
-from core.modules.requests.core.schemes import Response, Dict, Params
+from core.modules.requests.modules.session.schemes import Response, Dict, Params
 from core.modules.requests.modules.session.methods import Session
 
 
@@ -37,5 +37,5 @@ class Requests:
         return await cls.__get_session().delete(url, headers=headers, cookies=cookies, **kwargs)
 
     @classmethod
-    async def get_file(cls, url: str) -> BytesIO:
-        return await cls.__get_session().get_file(url)
+    async def get_file(cls, url: str, **kwargs) -> BytesIO:
+        return await cls.__get_session().get_file(url, **kwargs)

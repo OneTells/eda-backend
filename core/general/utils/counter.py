@@ -1,60 +1,131 @@
 import asyncio
 from time import time
+from typing import Iterator
+
+from core.modules.worker.utils.timer import timer
+
+
+class TimePointList:
+
+    def __init__(self):
+        self.__deltas = []
+        self.__first_point: float | None = None
+        self.__last_point: float | None = None
+
+    def __iter__(self) -> Iterator[float]:
+        if self.__first_point is None:
+            return
+
+        current_point = self.__first_point
+        yield current_point
+
+        for delta in self.__deltas:
+            current_point += delta
+            yield current_point
+
+    def __len__(self) -> int:
+        if self.__first_point is None:
+            return 0
+
+        return len(self.__deltas) + 1
+
+    def get_last_point(self) -> float | None:
+        return self.__last_point
+
+    def delete(self, index: int) -> None:
+        if self.__first_point is None:
+            return
+
+        if index == len(self.__deltas):
+            self.__first_point = None
+            self.__last_point = None
+            self.__deltas.clear()
+            return
+
+        for i, element in enumerate(self.__iter__()):
+            if i == index:
+                self.__first_point = element
+                break
+
+        del self.__deltas[:index]
+
+    def append(self, point: float) -> None:
+        if self.__first_point is None:
+            self.__first_point = point
+        else:
+            self.__deltas.append(point - self.__last_point)
+
+        self.__last_point = point
 
 
 class TimeCounter:
 
-    def __init__(self, *, hours: int = 0, minutes: int = 0, seconds: int = 0, milliseconds: int = 0) -> None:
-        self.__period = int(hours * 3600 + minutes * 60 + seconds + milliseconds / 1000)
+    def __init__(self, *, hours: int = 0, minutes: int = 0, seconds: int = 0, milliseconds: int = 0):
+        self.__interval = int(timer(hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds))
 
-        self.__first_element: int | None = None
-        self.__last_element: int | None = None
-
-        self.__deltas: list[int] = []
+        self.__list = TimePointList()
 
     def __check(self) -> None:
-        current_time = time() - self.__period
-        element = self.__first_element
+        current_index: int | None = None
 
-        for index, delta in enumerate(self.__deltas):
-            element += delta
+        for index, element in enumerate(self.__list):
+            if time() - element <= self.__interval:
+                break
 
-            if element > current_time:
-                del self.__deltas[:index]
+            current_index = index
 
-                self.__first_element = element
-                self.__deltas[0] = 0
-                return
+        if current_index is not None:
+            self.__list.delete(current_index)
 
-        self.__deltas.clear()
-        self.__first_element = None
-        self.__last_element = None
-
-    def add(self) -> int:
-        element = int(time())
-
-        if self.__last_element is not None:
-            self.__deltas.append(element - self.__last_element)
-            self.__last_element = element
-        else:
-            self.__deltas.append(0)
-            self.__first_element = element
-            self.__last_element = element
-
+    def add(self):
         self.__check()
-        return len(self.__deltas)
+        self.__list.append(time())
+        return len(self.__list)
 
     @property
-    def time_until_element_is_deleted(self) -> int:
-        return self.__period - (int(time()) - self.__first_element)
+    def time_until_element_is_deleted(self) -> float:
+        return self.__interval - (time() - (self.__list.get_last_point() or 0))
 
 
 class FloodControl:
 
     def __init__(self, n_times_per_period, *, hours: int = 0, minutes: int = 0, seconds: int = 0, milliseconds: int = 0):
         self.__n_times_per_period = n_times_per_period
-        self.__time_counter = TimeCounter(hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds)
+        self.__interval = int(timer(hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds))
+
+        self.__list = TimePointList()
+
+    def __check(self) -> None:
+        current_index: int | None = None
+
+        for index, element in enumerate(self.__list):
+            if time() - element <= self.__interval:
+                break
+
+            current_index = index
+
+        if current_index is not None:
+            self.__list.delete(current_index)
+
+    @property
+    def time_until_element_is_deleted(self) -> float:
+        return self.__interval - (time() - (self.__list.get_last_point() or 0))
 
     async def wait_point(self):
-        if self.__time_counter.add() > self.__n_times_per_period:
-            await asyncio.sleep(self.__time_counter.time_until_element_is_deleted)
+        self.__check()
+
+        if len(self.__list) + 1 > self.__n_times_per_period:
+            await asyncio.sleep(self.time_until_element_is_deleted)
+
+        self.__list.append(time())
+
+# @benchmark('Таймер')
+# async def main():
+#     flood = FloodControl(1, seconds=3)
+#
+#     for i in range(10):
+#         await flood.wait_point()
+#
+#
+# if __name__ == '__main__':
+#     asyncio.run(main())
