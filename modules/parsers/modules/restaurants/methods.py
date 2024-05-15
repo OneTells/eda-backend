@@ -1,5 +1,3 @@
-from typing import Any
-
 import orjson
 
 from core.general.schemes.restaurant import Location
@@ -14,13 +12,16 @@ class RestaurantParser:
     __flood_control = FloodControl(250, minutes=1)
 
     @classmethod
-    async def __get_additional_data(cls, restaurant_slug: str) -> RestaurantAdditionalData:
+    async def __get_additional_data(cls, restaurant_slug: str) -> RestaurantAdditionalData | None:
         await cls.__flood_control.wait_point()
 
         response = await Requests.get(
             f'https://eda.yandex.ru/api/v2/catalog/{restaurant_slug}',
             headers=HEADERS
         )
+
+        if response.status_code == 404:
+            return
 
         if response.status_code != 200:
             logger.error(msg := f'Не удалось получить рестораны: {response}')
@@ -32,8 +33,11 @@ class RestaurantParser:
         return RestaurantAdditionalData(location['longitude'], location['latitude'], content['rating'])
 
     @classmethod
-    async def __validate_restaurant(cls, element: dict) -> Restaurant:
+    async def __validate_restaurant(cls, element: dict) -> Restaurant | None:
         additional_data = await cls.__get_additional_data(element['slug'])
+
+        if not additional_data:
+            return
 
         return Restaurant(
             slug=element['slug'],
@@ -74,6 +78,11 @@ class RestaurantParser:
                 continue
 
             for restaurant in restaurants:
-                result.add(await cls.__validate_restaurant(restaurant))
+                data = await cls.__validate_restaurant(restaurant)
+
+                if not data:
+                    continue
+
+                result.add(data)
 
         return list(result)

@@ -1,18 +1,21 @@
 from datetime import timedelta, datetime
 
 from fastapi import APIRouter
+from fastapi.responses import ORJSONResponse
+
 
 from core.general.models.restaurants import Restaurants, Organizations
 from core.general.schemes.restaurant import Location
 from core.modules.database.modules.requests.methods import Select
 from modules.api.core.methods.distance import get_distance
+from modules.api.core.schemes.api import Content
 from modules.api.modules.restaurants.schemes import Restaurant
 
-router = APIRouter(prefix='/restaurants')
+router = APIRouter(prefix='/restaurants', tags=['restaurants'])
 
 
 @router.get("/nearest")
-async def get_nearest_restaurants(latitude: float, longitude: float) -> list[Restaurant]:
+async def get_nearest_restaurants(latitude: float, longitude: float):
     response = await (
         Select(
             Restaurants.id, Organizations.name, Restaurants.rating, Organizations.photo,
@@ -22,9 +25,9 @@ async def get_nearest_restaurants(latitude: float, longitude: float) -> list[Res
         .fetch()
     )
 
-    restaurants = []
-
     location = Location(latitude=latitude, longitude=longitude)
+
+    restaurants = []
 
     for restaurant in response:
         distance = get_distance(location, Location(latitude=restaurant['latitude'], longitude=restaurant['longitude']))
@@ -36,4 +39,4 @@ async def get_nearest_restaurants(latitude: float, longitude: float) -> list[Res
             Restaurant(id=restaurant[0], name=restaurant[1], rating=restaurant[2], distance=distance, photo=restaurant[3])
         )
 
-    return restaurants
+    return ORJSONResponse(content=Content[list[Restaurant]](content=restaurants).model_dump(), status_code=200)

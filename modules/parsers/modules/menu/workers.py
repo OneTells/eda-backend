@@ -53,7 +53,8 @@ class Executor(BaseExecutor):
         return {
             row[0]: MenuItem(
                 name=row[0], description=row[1], price=row[2], nutrients=Nutrients.model_validate_json(row[3]) if row[3] else None,
-                measure=Measure.model_validate_json(row[4]) if row[4] else None, photo=row[5], category_name=row[6]
+                measure=Measure.model_validate_json(row[4].replace('unit', 'measure_unit')) if row[4] else None, photo=row[5],
+                category_name=row[6]
             ) for row in response
         }
 

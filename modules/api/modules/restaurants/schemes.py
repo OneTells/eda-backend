@@ -6,4 +6,4 @@ class Restaurant(BaseModel):
     name: str
     rating: float | None
     distance: float
-    photo: str | None
+    photo: str
