@@ -5,15 +5,15 @@ from sqlalchemy import func
 
 from core.general.models.setting import Setting
 from core.general.models.user import UserSetting
-from core.modules.database.modules.requests.methods import Select, Update, Insert
-from modules.api.core.methods.auth import authorization
+from core.modules.database.methods.requests import Select, Update, Insert
+from modules.api.core.methods.auth import get_user_id
 from modules.api.modules.setting.schemes import SettingData
 
 router = APIRouter(prefix='/setting', tags=['setting'])
 
 
 @router.get("/")
-async def get_all(user_id: Annotated[int, Depends(authorization)]):
+async def get_all(user_id: Annotated[int, Depends(get_user_id)]):
     data = await (
         Select(Setting.id.distinct(), UserSetting.value)
         .outerjoin(UserSetting, Setting.id == UserSetting.setting_id)
@@ -26,7 +26,7 @@ async def get_all(user_id: Annotated[int, Depends(authorization)]):
 
 
 @router.put("/")
-async def select(user_id: Annotated[int, Depends(authorization)], setting_id: int, value: int):
+async def select(user_id: Annotated[int, Depends(get_user_id)], setting_id: int, value: int):
     is_exist = await (
         Select(func.count())
         .where(UserSetting.user_id == user_id, UserSetting.setting_id == setting_id)

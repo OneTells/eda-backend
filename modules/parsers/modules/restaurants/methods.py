@@ -3,7 +3,7 @@ import orjson
 from core.general.schemes.restaurant import Location
 from core.general.utils.counter import FloodControl
 from core.modules.logger.methods import logger
-from core.modules.requests.core.methods import Requests
+from core.modules.requests.methods.requests import Requests
 from modules.parsers.modules.restaurants.config import HEADERS
 from modules.parsers.modules.restaurants.schemes import Restaurant, Organization, RestaurantAdditionalData
 
@@ -13,7 +13,7 @@ class RestaurantParser:
 
     @classmethod
     async def __get_additional_data(cls, restaurant_slug: str) -> RestaurantAdditionalData | None:
-        await cls.__flood_control.wait_point()
+        await cls.__flood_control.async_wait_point()
 
         response = await Requests.get(
             f'https://eda.yandex.ru/api/v2/catalog/{restaurant_slug}',
@@ -50,7 +50,7 @@ class RestaurantParser:
 
     @classmethod
     async def get_restaurants(cls, location: Location) -> list[Restaurant]:
-        await cls.__flood_control.wait_point()
+        await cls.__flood_control.async_wait_point()
 
         response = await Requests.post(
             'https://eda.yandex.ru/eats/v1/layout-constructor/v1/layout',

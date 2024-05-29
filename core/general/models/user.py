@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Text, SmallInteger, Uuid, UUID, ForeignKey, Boolean, false, text, TIMESTAMP
+from sqlalchemy import Text, SmallInteger, Uuid, UUID, ForeignKey, Boolean, false, text, TIMESTAMP, BigInteger
 from sqlalchemy.orm import mapped_column as column, Mapped
 
-from core.general.models.allergens import Allergens
+from core.general.models.allergen import Allergens
 from core.general.models.base import Base
 from core.general.models.restaurants import Restaurants
 from core.general.models.setting import Setting
@@ -37,6 +37,7 @@ class UserSetting(Base):
 class UserHistory(Base):
     __tablename__ = 'user_history'
 
-    user_id: Mapped[int] = column(SmallInteger, ForeignKey(User.id), primary_key=True)
-    restaurant_id: Mapped[int] = column(SmallInteger, ForeignKey(Restaurants.id), primary_key=True)
+    id: Mapped[int] = column(BigInteger, autoincrement=True, primary_key=True)
+    user_id: Mapped[int] = column(SmallInteger, ForeignKey(User.id))
+    restaurant_id: Mapped[int] = column(SmallInteger, ForeignKey(Restaurants.id))
     created_at: Mapped[datetime] = column(TIMESTAMP, nullable=False, server_default=text("now()"))

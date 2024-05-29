@@ -1,20 +1,21 @@
 from datetime import datetime
 
+from core.general.methods.workers import Lifespan
 from core.general.models.menu import MenuItems, Categories
 from core.general.models.restaurants import Restaurants
 from core.general.schemes.menu import Nutrients, Measure
-from core.modules.database.modules.requests.methods import Select, Insert, Update
+from core.general.utils.timer import timer
+from core.modules.database.methods.requests import Select, Insert, Update
 from core.modules.logger.methods import logger
 from core.modules.worker.abstract.executor import BaseExecutor
 from core.modules.worker.abstract.trigger import BaseTrigger
 from core.modules.worker.abstract.worker import BaseWorker
 from core.modules.worker.schemes.setting import Setting
-from core.modules.worker.utils.timer import timer
 from modules.parsers.modules.menu.methods import MenuParser
 from modules.parsers.modules.menu.schemes import MenuItem
 
 
-class Executor(BaseExecutor):
+class Executor(BaseExecutor, Lifespan):
 
     @staticmethod
     async def __get_category_id(menu_item: MenuItem) -> int:
@@ -52,7 +53,8 @@ class Executor(BaseExecutor):
 
         return {
             row[0]: MenuItem(
-                name=row[0], description=row[1], price=row[2], nutrients=Nutrients.model_validate_json(row[3]) if row[3] else None,
+                name=row[0], description=row[1], price=row[2],
+                nutrients=Nutrients.model_validate_json(row[3]) if row[3] else None,
                 measure=Measure.model_validate_json(row[4].replace('unit', 'measure_unit')) if row[4] else None, photo=row[5],
                 category_name=row[6]
             ) for row in response
@@ -136,7 +138,7 @@ class Executor(BaseExecutor):
             )
 
 
-class Trigger(BaseTrigger):
+class Trigger(BaseTrigger, Lifespan):
 
     async def __call__(self) -> list[tuple]:
         return await Select(Restaurants.id, Restaurants.slug).fetch(model=tuple)
@@ -146,7 +148,7 @@ class MenuItemSearcherWorker(BaseWorker):
 
     @staticmethod
     def setting() -> Setting:
-        return Setting(timeout=timer(hours=12), worker_count=1)
+        return Setting(timeout=timer(hours=12), executor_count=1)
 
     @staticmethod
     def executor() -> type[BaseExecutor]:

@@ -2,7 +2,8 @@ import orjson
 
 from core.general.utils.counter import FloodControl
 from core.modules.logger.methods import logger
-from core.modules.requests.core.methods import Requests
+from core.modules.requests.methods.requests import Requests
+
 from modules.parsers.modules.menu.config import HEADERS
 from modules.parsers.modules.menu.schemes import Category, MenuItem
 
@@ -12,7 +13,7 @@ class MenuParser:
 
     @classmethod
     async def get_menu(cls, restaurant_slug: str) -> list[MenuItem]:
-        await cls.__flood_control.wait_point()
+        await cls.__flood_control.async_wait_point()
 
         response = await Requests.get(
             f'https://eda.yandex.ru/api/v2/menu/retrieve/{restaurant_slug}',

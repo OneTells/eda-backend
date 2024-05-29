@@ -8,7 +8,7 @@ from fastapi.responses import ORJSONResponse
 from sqlalchemy import func
 
 from core.general.models.user import User
-from core.modules.database.modules.requests.methods import Select, Insert
+from core.modules.database.methods.requests import Select, Insert
 from modules.api.core.config.token import secret_token
 from modules.api.core.methods.token import UserToken
 from modules.api.core.schemes.api import Content

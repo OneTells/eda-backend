@@ -5,16 +5,20 @@ from asyncio import sleep, CancelledError
 from multiprocessing import Queue, Array
 from signal import signal, SIGTERM, SIGINT, SIG_IGN, default_int_handler
 
-import uvloop
 from _queue import Empty
 
-from core.general.models.workers import Workers
-from core.modules.database.modules.requests.methods import Insert, Select
-from core.modules.logger.methods import logger
-from core.modules.worker.exceptions.trigger import ReloadTriggerError
+from core.modules.database.methods.requests import Select, Insert
+from core.modules.logger.objects import logger
+from core.modules.worker.exceptions.trigger import ReloadTrigger
 from core.modules.worker.methods.executor import ExecutorProcess
+from core.modules.worker.models.worker import Worker
 from core.modules.worker.schemes.executor import ExecutorProcessData
 from core.modules.worker.schemes.worker import WorkerData
+
+try:
+    from uvloop import new_event_loop
+except ImportError:
+    from asyncio import new_event_loop
 
 
 class Trigger:
@@ -27,6 +31,8 @@ class Trigger:
 
         self.__queue: Queue | None = None
         self.__limited_args_queue: Queue | None = None
+
+        self.__logger = logger.bind(context=self.__worker_data.worker_name)
 
     def __create_limited_args(self) -> tuple[list[tuple], ArrayType, Queue] | None:
         if self.__worker_data.setting.limited_args is None:
@@ -50,13 +56,13 @@ class Trigger:
     async def __startup(self) -> None:
         await self.__trigger.startup()
 
-        if not self.__worker_data.setting.worker_count or self.__worker_data.executor is None:
+        if not self.__worker_data.setting.executor_count or self.__worker_data.executor is None:
             return
 
         self.__queue = Queue()
         limited_args = self.__create_limited_args()
 
-        for number in range(self.__worker_data.setting.worker_count):
+        for number in range(self.__worker_data.setting.executor_count):
             self.__executors.append(
                 executor := ExecutorProcess(
                     ExecutorProcessData(
@@ -81,8 +87,8 @@ class Trigger:
     async def __shutdown(self) -> None:
         await self.__trigger.shutdown()
 
-        if not self.__worker_data.setting.worker_count:
-            logger.info(f'{self.__worker_data.worker_name} триггер завершён')
+        if not self.__worker_data.setting.executor_count:
+            self.__logger.debug('Триггер завершён')
             return
 
         while not self.__queue.empty():
@@ -91,7 +97,7 @@ class Trigger:
             except Empty:
                 break
 
-        for _ in range(self.__worker_data.setting.worker_count):
+        for _ in range(self.__worker_data.setting.executor_count):
             self.__queue.put('Stop')
 
         await self.__sleep(80)
@@ -111,26 +117,26 @@ class Trigger:
 
         self.__executors.clear()
 
-        logger.info(f'{self.__worker_data.worker_name} триггер завершён')
+        self.__logger.debug('Триггер завершён')
 
     async def __is_on(self) -> bool:
         try:
             is_trigger_on: bool | None = await (
-                Select(Workers.is_trigger_on)
-                .where(Workers.name == self.__worker_data.worker_name.removesuffix('Worker'))
+                Select(Worker.is_trigger_on)
+                .where(Worker.name == self.__worker_data.worker_name.removesuffix('Worker'))
                 .fetch_one(model=lambda x: x[0])
             )
 
             if is_trigger_on is None:
                 await (
-                    Insert(Workers)
+                    Insert(Worker)
                     .values(name=self.__worker_data.worker_name.removesuffix('Worker'), is_trigger_on=False)
                     .execute()
                 )
                 return False
         except Exception as error:
-            logger.exception(str(error))
-            logger.error(f'Ошибка в проверке работы {self.__worker_data.worker_name} trigger')
+            self.__logger.exception(str(error) or ' ')
+            self.__logger.error('Ошибка при проверке настроек триггера')
             return False
 
         return is_trigger_on is True
@@ -152,7 +158,7 @@ class Trigger:
                 is_work = True
 
             if is_reset:
-                raise ReloadTriggerError()
+                raise ReloadTrigger()
 
             if not is_work:
                 break
@@ -165,8 +171,8 @@ class Trigger:
         except Exception as error:
             _ = error
 
-            logger.exception()
-            logger.error(f'Ошибка при выполнении {self.__worker_data.worker_name} trigger')
+            self.__logger.exception(' ')
+            self.__logger.error('Ошибка при выполнении функции триггера')
             return False
 
         for obj in (result or []):
@@ -191,22 +197,22 @@ class Trigger:
 
         while True:
             await self.__startup()
-            logger.info(f'{self.__worker_data.worker_name} триггер запушен')
+            self.__logger.debug('Триггер запушен')
 
             if is_reload:
-                logger.warning(f'{self.__worker_data.worker_name} перезагружен')
+                self.__logger.warning('Триггер перезагружен')
             else:
                 is_reload = True
 
             try:
                 await self.__run()
-            except ReloadTriggerError:
-                logger.warning(f'{self.__worker_data.worker_name} завис, выполняется перезагрузка')
+            except ReloadTrigger:
+                self.__logger.warning('Триггер завис, выполняется перезагрузка')
 
                 await self.__shutdown()
                 continue
             except CancelledError:
-                logger.info(f'{self.__worker_data.worker_name} триггер принял запрос о завершении работы')
+                self.__logger.debug('Триггер принял запрос о завершении работы')
 
             await self.__shutdown()
             return
@@ -217,7 +223,7 @@ class Trigger:
         signal(SIGTERM, default_int_handler)
 
         try:
-            with asyncio.Runner(loop_factory=uvloop.new_event_loop) as runner:
+            with asyncio.Runner(loop_factory=new_event_loop) as runner:
                 runner.run(cls(worker_data).__run_with_reloader())
         except KeyboardInterrupt:
             pass

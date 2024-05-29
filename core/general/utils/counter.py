@@ -1,8 +1,8 @@
 import asyncio
-from time import time
+from time import time, sleep
 from typing import Iterator
 
-from core.modules.worker.utils.timer import timer
+from core.general.utils.timer import timer
 
 
 class TimePointList:
@@ -111,7 +111,18 @@ class FloodControl:
     def time_until_element_is_deleted(self) -> float:
         return self.__interval - (time() - (self.__list.get_last_point() or 0))
 
-    async def wait_point(self):
+    def add(self) -> bool:
+        self.__check()
+
+        result = True
+
+        if len(self.__list) + 1 > self.__n_times_per_period:
+            result = False
+
+        self.__list.append(time())
+        return result
+
+    async def async_wait_point(self):
         self.__check()
 
         if len(self.__list) + 1 > self.__n_times_per_period:
@@ -119,13 +130,10 @@ class FloodControl:
 
         self.__list.append(time())
 
-# @benchmark('Таймер')
-# async def main():
-#     flood = FloodControl(1, seconds=3)
-#
-#     for i in range(10):
-#         await flood.wait_point()
-#
-#
-# if __name__ == '__main__':
-#     asyncio.run(main())
+    def sync_wait_point(self):
+        self.__check()
+
+        if len(self.__list) + 1 > self.__n_times_per_period:
+            sleep(self.time_until_element_is_deleted)
+
+        self.__list.append(time())

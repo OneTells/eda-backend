@@ -1,19 +1,20 @@
 from datetime import datetime
 
+from core.general.methods.workers import Lifespan
 from core.general.models.restaurants import Restaurants, Organizations
 from core.general.schemes.restaurant import Location
-from core.modules.database.modules.requests.methods import Select, Insert, Update
+from core.general.utils.timer import timer
+from core.modules.database.methods.requests import Select, Insert, Update
 from core.modules.logger.methods import logger
 from core.modules.worker.abstract.executor import BaseExecutor
 from core.modules.worker.abstract.trigger import BaseTrigger
 from core.modules.worker.abstract.worker import BaseWorker
 from core.modules.worker.schemes.setting import Setting
-from core.modules.worker.utils.timer import timer
 from modules.parsers.modules.restaurants.methods import RestaurantParser
 from modules.parsers.modules.restaurants.schemes import Restaurant, Organization
 
 
-class Executor(BaseExecutor):
+class Executor(BaseExecutor, Lifespan):
 
     @staticmethod
     async def __get_organization_id(restaurant: Restaurant) -> int:
@@ -136,7 +137,7 @@ class Executor(BaseExecutor):
             )
 
 
-class Trigger(BaseTrigger):
+class Trigger(BaseTrigger, Lifespan):
     LATITUDE_MIN = 56.745
     LATITUDE_MAX = 56.920
     LATITUDE_STEP = 0.005
@@ -173,7 +174,7 @@ class RestaurantSearcherWorker(BaseWorker):
 
     @staticmethod
     def setting() -> Setting:
-        return Setting(timeout=timer(hours=1), worker_count=1)
+        return Setting(timeout=timer(hours=1), executor_count=1)
 
     @staticmethod
     def executor() -> type[BaseExecutor]:

@@ -1,2 +1,2 @@
-class ReloadTriggerError(Exception):
+class ReloadTrigger(Exception):
     pass

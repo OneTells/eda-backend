@@ -2,14 +2,18 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from core.modules.database.modules.pool.methods import DatabasePool
+from core.general.config.database import database_data
+from core.general.methods.logger import enable_logger
+from core.modules.database.methods.pool import DatabasePool
 from core.modules.logger.methods import logger
-from core.modules.requests.modules.session.methods import SessionPool
+from core.modules.requests.methods.sessions import SessionPool
 
 
 async def on_startup():
+    enable_logger()
+
     logger.info('Worker запушен')
-    await DatabasePool.connect(pool_size=3)
+    await DatabasePool.connect(database_data, pool_size=3)
 
 
 async def on_shutdown():

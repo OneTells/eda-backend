@@ -4,15 +4,15 @@ from fastapi import APIRouter, Depends
 
 from core.general.models.restaurants import Restaurants, Organizations
 from core.general.models.user import UserHistory
-from core.modules.database.modules.requests.methods import Select
-from modules.api.core.methods.auth import authorization
+from core.modules.database.methods.requests import Select
+from modules.api.core.methods.auth import get_user_id
 from modules.api.modules.history.schemes import Record
 
 router = APIRouter(prefix='/history', tags=['history'])
 
 
 @router.get("/")
-async def get_all(user_id: Annotated[int, Depends(authorization)]):
+async def get_all(user_id: Annotated[int, Depends(get_user_id)]):
     data = await (
         Select(Restaurants.id.distinct(), Organizations.name, Organizations.photo, UserHistory.created_at)
         .join(Organizations, Organizations.id == Restaurants.organization_id)

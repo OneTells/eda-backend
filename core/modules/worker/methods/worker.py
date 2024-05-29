@@ -1,6 +1,6 @@
 from multiprocessing.context import SpawnProcess
 
-from core.modules.logger.methods import logger
+from core.modules.logger.objects import logger
 from core.modules.worker.abstract.worker import BaseWorker
 from core.modules.worker.methods.trigger import Trigger
 from core.modules.worker.schemes.worker import WorkerData
@@ -11,6 +11,7 @@ class WorkerProcess:
     def __init__(self, worker: type[BaseWorker]) -> None:
         self.__worker = worker
         self.__process: SpawnProcess | None = None
+        self.__logger = logger.bind(context=self.__worker.__name__)
 
     def start(self) -> None:
         self.__process = SpawnProcess(
@@ -24,22 +25,22 @@ class WorkerProcess:
         )
         self.__process.start()
 
-        logger.info(f'{self.__worker.__name__} запушен')
+        self.__logger.info('Запушен')
 
     def terminate(self):
         self.__process.terminate()
-        logger.info(f'В {self.__worker.__name__} отправлен запрос о завершении работы')
+        self.__logger.debug('Отправлен запрос о завершении работы')
 
     def close(self):
         try:
             self.__process.join()
         except KeyboardInterrupt as error:
-            logger.error(f'{self.__worker.__name__} ошибка при закрытии')
+            self.__logger.error('Ошибка при закрытии')
             raise error
 
         self.__process.close()
 
-        logger.info(f'{self.__worker.__name__} остановлен')
+        self.__logger.info('Остановлен')
 
 
 class WorkerManager:

@@ -1,15 +1,17 @@
+from core.general.methods.logger import enable_logger
+
+enable_logger()
+
 if __name__ == '__main__':
-    import multiprocessing
     from time import sleep
 
     from core.modules.worker.methods.worker import WorkerManager
-    from modules.parsers.modules.restaurants.workers import RestaurantSearcherWorker
+    from modules.parsers.modules.allergens.workers import AllergenParserWorker
     from modules.parsers.modules.menu.workers import MenuItemSearcherWorker
-
-    multiprocessing.set_start_method('spawn')
+    from modules.parsers.modules.restaurants.workers import RestaurantSearcherWorker
 
     worker_manager = WorkerManager(
-        RestaurantSearcherWorker, MenuItemSearcherWorker
+        RestaurantSearcherWorker, MenuItemSearcherWorker, AllergenParserWorker
     )
 
     worker_manager.start()

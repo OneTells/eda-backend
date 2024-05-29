@@ -1,23 +1,19 @@
 import asyncio
-from asyncio import sleep
-from io import BytesIO
-from typing import Self, Any
+from typing import Self
 
 from aiohttp import ClientError, ServerDisconnectedError
 from aiohttp.client import ClientSession
 
-from core.modules.requests.modules.session.config import DEFAULT_USER_AGENT
-from core.modules.requests.modules.session.exceptions import GetFileError
-from core.modules.requests.modules.session.schemes import Response, Methods, RequestArgs, Dict, Params
+from core.modules.requests.config.sessions import DEFAULT_USER_AGENT
+from core.modules.requests.schemes.sessions import Response, Methods, RequestArgs, Dict, Params
 
 
 class Session:
 
     def __init__(self, **kwargs):
-        self.__session = ClientSession(**kwargs)
-        SessionPool.add(self)
+        self.__session = SessionPool.create(**kwargs)
 
-    async def __request(self, method: Methods, url: str, depth: int = 0, **kwargs: Any) -> Response:
+    async def __request(self, method: Methods, url: str, depth: int = 0, **kwargs) -> Response:
         try:
             async with self.__session.request(method, url, **kwargs) as response:
                 return Response(content=await response.read(), status_code=response.status, row_response=response)
@@ -38,8 +34,8 @@ class Session:
         return await self.__request(method, url, **args.model_dump(by_alias=True))
 
     async def close(self) -> None:
+        SessionPool.remove(self.__session)
         await self.__session.close()
-        SessionPool.remove(self)
 
     async def get(self, url: str, *, params: Params = None, headers: Dict = None, cookies: Dict = None, **kwargs) -> Response:
         return await self.request('GET', url, params=params, headers=headers, cookies=cookies, **kwargs)
@@ -53,17 +49,6 @@ class Session:
     async def delete(self, url: str, *, headers: Dict = None, cookies: Dict = None, **kwargs) -> Response:
         return await self.request('DELETE', url, headers=headers, cookies=cookies, **kwargs)
 
-    async def get_file(self, url: str, **kwargs) -> BytesIO:
-        response = await self.get(url, **kwargs)
-
-        if response.status_code == 200:
-            return BytesIO(response.content)
-
-        if response.status_code in (500, 502, 503):
-            raise GetFileError('Нет доступа к файлу', url, response)
-
-        raise GetFileError('Неизвестная ошибка при получении файла', url, response)
-
     async def __aenter__(self) -> Self:
         return self
 
@@ -72,19 +57,18 @@ class Session:
 
 
 class SessionPool:
-    __sessions: list[Session] = []
+    __sessions: list[ClientSession] = []
 
     @classmethod
-    def add(cls, element: Session):
-        cls.__sessions.append(element)
+    def remove(cls, session: ClientSession):
+        cls.__sessions.remove(session)
 
     @classmethod
-    def remove(cls, element: Session):
-        cls.__sessions.remove(element)
+    def create(cls, **kwargs) -> ClientSession:
+        cls.__sessions.append(session := ClientSession(**kwargs))
+        return session
 
     @classmethod
     async def close(cls):
-        for session in cls.__sessions.copy():
+        for session in cls.__sessions:
             await session.close()
-
-        await sleep(0)

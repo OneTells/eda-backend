@@ -20,7 +20,10 @@ if __name__ == 'api':
 if __name__ == '__main__':
     import uvicorn
 
+    from core.general.methods.logger import enable_logger
     from core.modules.logger.methods import logger
+
+    enable_logger()
 
     logger.info('API запущен')
     uvicorn.run(

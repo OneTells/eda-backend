@@ -7,10 +7,13 @@ from multiprocessing.managers import ValueProxy
 from signal import signal, SIGTERM, SIGINT, SIG_IGN, default_int_handler
 from typing import Any, AsyncIterator
 
-import uvloop
-
-from core.modules.logger.methods import logger
+from core.modules.logger.objects import logger
 from core.modules.worker.schemes.executor import ExecutorData, ExecutorProcessData
+
+try:
+    from uvloop import new_event_loop
+except ImportError:
+    from asyncio import new_event_loop
 
 
 class Executor:
@@ -20,6 +23,8 @@ class Executor:
         self.__executor = executor_data.executor()
 
         self.__lifespan: AsyncIterator | None = None
+
+        self.__logger = logger.bind(context=self.__executor_data.worker_name)
 
     async def __startup(self) -> None:
         await self.__executor.startup()
@@ -43,7 +48,7 @@ class Executor:
 
     async def __run(self):
         await self.__startup()
-        logger.info(f'{self.__executor_data.worker_name} исполнитель запушен')
+        self.__logger.debug('Исполнитель запушен')
 
         try:
             while True:
@@ -54,15 +59,15 @@ class Executor:
 
                 self.__executor_data.set_start_work()
 
-                logger.debug(f'{self.__executor_data.worker_name} executor {args}')
+                self.__logger.debug(f'Выполняется исполнитель. Аргументы: {args}')
 
                 try:
                     await self.__executor(*args)
                 except Exception as error:
                     _ = error
 
-                    logger.exception()
-                    logger.error(f'Ошибка при выполнении {self.__executor_data.worker_name} исполнителя {args}')
+                    self.__logger.exception(' ')
+                    self.__logger.error(f'Ошибка при выполнении исполнителя. Аргументы: {args}')
 
                 self.__executor_data.set_finish_work()
 
@@ -72,10 +77,10 @@ class Executor:
 
                 del args, args_in_queue, index
         except CancelledError:
-            logger.info(f'{self.__executor_data.worker_name} исполнитель принял запрос о завершении работы')
+            self.__logger.debug('Исполнитель принял запрос о завершении работы')
 
         await self.__shutdown()
-        logger.info(f'{self.__executor_data.worker_name} исполнитель завершён')
+        self.__logger.debug('Исполнитель завершён')
 
     @classmethod
     def run(cls, executor_data: ExecutorData) -> None:
@@ -83,7 +88,7 @@ class Executor:
         signal(SIGTERM, default_int_handler)
 
         try:
-            with asyncio.Runner(loop_factory=uvloop.new_event_loop) as runner:
+            with asyncio.Runner(loop_factory=new_event_loop) as runner:
                 runner.run(cls(executor_data).__run())
         except KeyboardInterrupt:
             pass
